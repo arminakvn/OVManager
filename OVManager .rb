@@ -4,11 +4,11 @@ require 'httparty'
 
 
 
-module OVManager
+module OSMDataManager
     FOLNAME = '/home/ubuntu/scripts/polyrema/'
 
     
-    class OVMevent
+    class OSMDataEvent
         def initialize(baseosm)
             @baseosm = baseosm
             @delbase = 'pass'
@@ -46,7 +46,7 @@ module OVManager
             if ( f =~ /.*\b.poly$/ )# && (f =~ /flood/)!=0
                 begin
                     
-                    chpou = OVManager.chainProcess(f, @baseosm)
+                    chpou = OSMDataManager.chainProcess(f, @baseosm)
                     
                 rescue => exception
 
@@ -98,7 +98,7 @@ module OVManager
 
     end
 
-    def OVManager.chainProcess(f, baseosm)
+    def OSMDataManager.chainProcess(f, baseosm)
         puts "chain process"
         cmd = Mixlib::ShellOut.new("sudo osmconvert #{baseosm} -B=#{FOLNAME}#{f.sub('.poly','')}.poly --complex-ways --drop-brokenrefs | sudo osmconvert #{baseosm} --subtract - -o=#{FOLNAME}#{f.sub('.poly','')}_floodin-subtracted.pbf")
         cmd.run_command
@@ -111,7 +111,7 @@ module OVManager
         end
     end
     
-    def OVManager.findOSM(f,baseosm)
+    def OSMDataManager.findOSM(f,baseosm)
         if ( f =~ /.*.osm$/ )
             puts ".osm is at the end"
             cmd = Mixlib::ShellOut.new("sudo","osmconvert", baseosm, "--subtract","#{FOLNAME}#{f}","-o=#{FOLNAME}#{f.sub('.osm','')}-subtracted.osm")
@@ -119,22 +119,22 @@ module OVManager
         end
     end
 
-    def OVManager.convBack f
+    def OSMDataManager.convBack f
         cmd = Mixlib::ShellOut.new("sudo","osmconvert","#{FOLNAME}#{f.sub('.osm','')}-subtracted.osm","-o=#{FOLNAME}floodin-subtracted.pbf")
         cmd.run_command
     end
 
 
-    def OVManager.removeOsm f
+    def OSMDataManager.removeOsm f
         cmd = Mixlib::ShellOut.new("sudo","rm","#{FOLNAME}#{f.sub('.osm','')}-subtracted.osm")
         cmd.run_command
     end
 
-    def OVManager.getDir
+    def OSMDataManager.getDir
         Dir.foreach FOLNAME
     end
 
-    def OVManager.processSub(en)
+    def OSMDataManager.processSub(en)
         en.each do |item|
             next if item == '.' or item == '..' or item =~ /.*.osm$/
             pname = item.sub('.poly','')
@@ -160,7 +160,7 @@ cmd = Mixlib:: ShellOut.new("sudo osmconvert /home/ubuntu/data/us-northeast-late
 
 cmd.run_command
 
-m = OVManager::OVMevent.new "/home/ubuntu/data/us-northeast-latest.osm.pbf"
+m = OSMDataManager::OSMDataEvent.new "/home/ubuntu/data/us-northeast-latest.osm.pbf"
 m.clipExtent("/home/ubuntu/scripts/bound/mapoly.poly")
 # -73.7680759429931641,40.7721142524021047,-73.7635024225405402,40.7788583940547440
 # the first thing is that to just clip from the extent of the poly files // a polygon input to 
@@ -169,7 +169,7 @@ m.clipExtent("/home/ubuntu/scripts/bound/mapoly.poly")
 #m.processF('000100.poly')
 
 
-e = OVManager.getDir
+e = OSMDataManager.getDir
 e.each do |item|
     puts item
 # end    
