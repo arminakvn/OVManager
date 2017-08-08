@@ -2,21 +2,71 @@ require 'mixlib/shellout'
 require 'httparty'
 
 
-
-
 module OSMDataManager
-    FOLNAME = '/home/ubuntu/scripts/polyrema/'
 
+
+
+    def OSMDataManager.chainProcess(f, baseosm)
+        puts "chain process"
+        cmd = Mixlib::ShellOut.new("sudo osmconvert #{baseosm} -B=#{fOLNAME}#{f.sub('.poly','')}.poly --complex-ways --drop-brokenrefs | sudo osmconvert #{baseosm} --subtract - -o=#{fOLNAME}#{f.sub('.poly','')}_floodin-subtracted.pbf")
+        cmd.run_command
+        puts "#{cmd.stdout}"
+        puts "#{cmd.stderr}"
+        if cmd.error!
+            return "#{baseosm}"
+        else
+            return "#{fOLNAME}#{f.sub('.poly','')}_floodin-subtracted.pbf"
+        end
+    end
     
+    def OSMDataManager.findOSM(f,baseosm)
+        if ( f =~ /.*.osm$/ )
+            puts ".osm is at the end"
+            cmd = Mixlib::ShellOut.new("sudo","osmconvert", baseosm, "--subtract","#{fOLNAME}#{f}","-o=#{fOLNAME}#{f.sub('.osm','')}-subtracted.osm")
+            cmd.run_command
+        end
+    end
+
+    def OSMDataManager.convBack f
+        cmd = Mixlib::ShellOut.new("sudo","osmconvert","#{fOLNAME}#{f.sub('.osm','')}-subtracted.osm","-o=#{fOLNAME}floodin-subtracted.pbf")
+        cmd.run_command
+    end
+
+
+    def OSMDataManager.removeOsm(f,fOLNAME)
+        cmd = Mixlib::ShellOut.new("sudo","rm","#{fOLNAME}#{f.sub('.osm','')}-subtracted.osm")
+        cmd.run_command
+    end
+
+    def OSMDataManager.getDir fOLNAME
+        Dir.foreach fOLNAME
+    end
+
+    def OSMDataManager.processSub(en)
+        en.each do |item|
+            next if item == '.' or item == '..' or item =~ /.*.osm$/
+            pname = item.sub('.poly','')
+            puts pname    
+            cmd = Mixlib::ShellOut.new("sudo","osmconvert", "/home/ubuntu/data/us-northeast-latest.pbf", "-B=#{fOLNAME}#{pname}.poly","--complex-ways","--drop-brokenrefs","-o=#{fOLNAME}flood_#{pname}.osm")
+            cmd.run_command
+            puts cmd.stdout
+        end
+        
+    end
+
+
+
     class OSMDataEvent
-        def initialize(baseosm)
+        attr_reader :fOLNAME
+        def initialize(inFoldername,baseosm)
             @baseosm = baseosm
             @delbase = 'pass'
+            @fOLNAME = inFoldername
         end
 
 
         def appendBackExtent(baseosm,ext)
-            cmd = Mixlib::ShellOut.new("sudo osmconvert #{baseosm} -B=#{ext} --complex-ways --drop-brokenrefs | sudo osmconvert #{baseosm} --subtract - -o=#{FOLNAME}base-subtracted-rest.pbf")
+            cmd = Mixlib::ShellOut.new("sudo osmconvert #{baseosm} -B=#{ext} --complex-ways --drop-brokenrefs | sudo osmconvert #{baseosm} --subtract - -o=#{@fOLNAME}base-subtracted-rest.pbf")
             cmd.run_command
         end
         
@@ -25,16 +75,27 @@ module OSMDataManager
             @ext = ext
 
             puts "cliping based on the input extent"
-            cmd = Mixlib::ShellOut.new("sudo osmconvert #{@baseosm} -B=#{ext} --complex-ways --drop-brokenrefs -o=#{FOLNAME}base-subtracted-extent.pbf")
+            cmd = Mixlib::ShellOut.new("sudo osmconvert #{@baseosm} -B=#{ext} --complex-ways --drop-brokenrefs -o=#{@fOLNAME}base-subtracted-extent.pbf")
             cmd.run_command
             if cmd.error!
                 puts "couldnt subtract base based on oxtent"
             else
-                @baseosm = "#{FOLNAME}base-subtracted-extent.pbf"
+                @baseosm = "#{@fOLNAME}base-subtracted-extent.pbf"
                 puts "subtracted base on extent now base is #{@baseosm}"
             end
 
 
+        end
+
+
+
+        def go
+            e = OSMDataManager.getDir @fOLNAME
+            e.each do |item|
+                puts item
+                next if item == '.' or item == '..'
+                m.processF(item)
+            end
         end
 
         def processF f
@@ -83,73 +144,22 @@ module OSMDataManager
 
     end
 
-    def OSMDataManager.chainProcess(f, baseosm)
-        puts "chain process"
-        cmd = Mixlib::ShellOut.new("sudo osmconvert #{baseosm} -B=#{FOLNAME}#{f.sub('.poly','')}.poly --complex-ways --drop-brokenrefs | sudo osmconvert #{baseosm} --subtract - -o=#{FOLNAME}#{f.sub('.poly','')}_floodin-subtracted.pbf")
-        cmd.run_command
-        puts "#{cmd.stdout}"
-        puts "#{cmd.stderr}"
-        if cmd.error!
-            return "#{baseosm}"
-        else
-            return "#{FOLNAME}#{f.sub('.poly','')}_floodin-subtracted.pbf"
-        end
-    end
-    
-    def OSMDataManager.findOSM(f,baseosm)
-        if ( f =~ /.*.osm$/ )
-            puts ".osm is at the end"
-            cmd = Mixlib::ShellOut.new("sudo","osmconvert", baseosm, "--subtract","#{FOLNAME}#{f}","-o=#{FOLNAME}#{f.sub('.osm','')}-subtracted.osm")
-            cmd.run_command
-        end
-    end
 
-    def OSMDataManager.convBack f
-        cmd = Mixlib::ShellOut.new("sudo","osmconvert","#{FOLNAME}#{f.sub('.osm','')}-subtracted.osm","-o=#{FOLNAME}floodin-subtracted.pbf")
-        cmd.run_command
-    end
-
-
-    def OSMDataManager.removeOsm f
-        cmd = Mixlib::ShellOut.new("sudo","rm","#{FOLNAME}#{f.sub('.osm','')}-subtracted.osm")
-        cmd.run_command
-    end
-
-    def OSMDataManager.getDir
-        Dir.foreach FOLNAME
-    end
-
-    def OSMDataManager.processSub(en)
-        en.each do |item|
-            next if item == '.' or item == '..' or item =~ /.*.osm$/
-            pname = item.sub('.poly','')
-            puts pname    
-            cmd = Mixlib::ShellOut.new("sudo","osmconvert", "/home/ubuntu/data/us-northeast-latest.pbf", "-B=#{FOLNAME}#{pname}.poly","--complex-ways","--drop-brokenrefs","-o=#{FOLNAME}flood_#{pname}.osm")
-            cmd.run_command
-            puts cmd.stdout
-        end
-        
-    end
 
 end
 
+# example usage for where the base osm is "/home/ubuntu/data/us-northeast-latest.osm.pbf",
 
+m = OSMDataManager::OSMDataEvent.new('/home/ubuntu/scripts/polyrema/',"/home/ubuntu/data/us-northeast-latest.osm.pbf")
 
-m = OSMDataManager::OSMDataEvent.new "/home/ubuntu/data/us-northeast-latest.osm.pbf"
 m.clipExtent("/home/ubuntu/scripts/bound/mapoly.poly")
 
-e = OSMDataManager.getDir
-e.each do |item|
-    puts item
-# end    
-    next if item == '.' or item == '..'
-    m.processF(item)
-end
+m.go
 
 
 
-# 
+# shorthand for generating a osm file of the rest of the area after clipping to a smaller extent (e.g. to attach it back in to the northeast area file)
 ext = "/home/ubuntu/scripts/bound/mapoly.poly"
-FOLNAME = '/home/ubuntu/scripts/polyrema/'
-cmd = Mixlib:: ShellOut.new("sudo osmconvert /home/ubuntu/data/us-northeast-latest.osm.pbf -B=#{ext} | sudo osmconvert /home/ubuntu/data/us-northeast-latest.osm.pbf --subtract - -o=#{FOLNAME}rest-of-subtr-northeast.pbf")
+@fOLNAME = '/home/ubuntu/scripts/polyrema/'
+cmd = Mixlib:: ShellOut.new("sudo osmconvert /home/ubuntu/data/us-northeast-latest.osm.pbf -B=#{ext} | sudo osmconvert /home/ubuntu/data/us-northeast-latest.osm.pbf --subtract - -o=#{@fOLNAME}rest-of-subtr-northeast.pbf")
 cmd.run_command
